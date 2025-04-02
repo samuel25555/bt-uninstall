@@ -52,7 +52,7 @@
 
 ### 1. **下载脚本**
    ```bash
-   wget https://raw.githubusercontent.com/your-repo/bt-uninstall/main/bt-uninstall.sh
+   wget https://raw.githubusercontent.com/samuel25555/bt-uninstall/main/bt-uninstall.sh
    ```
 
 ### 2. **赋予执行权限**
