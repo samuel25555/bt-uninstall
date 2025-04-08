@@ -105,9 +105,17 @@ Remove_Data() {
 
 # 删除所有 user.ini 文件
 Remove_User_Ini() {
-  echo -e "开始删除所有 user.ini 文件..."
+  echo -e "开始处理 user.ini 文件..."
+  
+  # 先移除所有 user.ini 文件的不可变属性
+  echo -e "移除 user.ini 文件的不可变属性..."
+  find /www/wwwroot -name "user.ini" -type f -exec chattr -i {} \; 2>/dev/null
+  
+  # 然后删除所有 user.ini 文件
+  echo -e "删除所有 user.ini 文件..."
   find /www/wwwroot -name "user.ini" -type f -delete
-  echo -e "所有 user.ini 文件已删除"
+  
+  echo -e "所有 user.ini 文件处理完成"
 }
 
 # 主菜单
