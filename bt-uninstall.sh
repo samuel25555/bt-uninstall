@@ -98,24 +98,73 @@ Remove_Service() {
 
 # 清除所有站点相关数据
 Remove_Data() {
+  # 先移除 .user.ini 文件的不可变属性，避免删除失败
+  echo -e "移除 .user.ini 文件的不可变属性..."
+  if [ -d "/www/wwwroot" ]; then
+    find /www/wwwroot -name ".user.ini" -type f 2>/dev/null | while read file; do
+      if [ -f "$file" ]; then
+        chattr -i "$file" 2>/dev/null && echo "已处理: $file" || echo "处理失败: $file"
+      fi
+    done
+  fi
+
+  # 检查是否有进程占用 /www 目录
+  echo -e "检查是否有进程占用 /www 目录..."
+  if command -v lsof >/dev/null 2>&1; then
+    lsof_result=$(lsof +D /www 2>/dev/null | grep -v "COMMAND")
+    if [ -n "$lsof_result" ]; then
+      echo -e "\033[33m警告: 发现以下进程正在使用 /www 目录:\033[0m"
+      echo "$lsof_result"
+      echo -e "\033[33m尝试终止这些进程...\033[0m"
+      lsof +D /www 2>/dev/null | awk 'NR>1 {print $2}' | sort -u | xargs -r kill -9 2>/dev/null
+      sleep 2
+    fi
+  fi
+
   rm -rf /www/server/data
   rm -rf /www/wwwlogs
   rm -rf /www/wwwroot
 }
 
-# 删除所有 user.ini 文件
+# 删除所有 .user.ini 文件
 Remove_User_Ini() {
-  echo -e "开始处理 user.ini 文件..."
-  
-  # 先移除所有 user.ini 文件的不可变属性
-  echo -e "移除 user.ini 文件的不可变属性..."
-  find /www/wwwroot -name "user.ini" -type f -exec chattr -i {} \; 2>/dev/null
-  
-  # 然后删除所有 user.ini 文件
-  echo -e "删除所有 user.ini 文件..."
-  find /www/wwwroot -name "user.ini" -type f -delete
-  
-  echo -e "所有 user.ini 文件处理完成"
+  echo -e "开始处理 .user.ini 文件..."
+
+  if [ ! -d "/www/wwwroot" ]; then
+    echo -e "/www/wwwroot 目录不存在，跳过"
+    return
+  fi
+
+  # 先移除所有 .user.ini 文件的不可变属性
+  echo -e "移除 .user.ini 文件的不可变属性..."
+  local count=0
+  local failed=0
+
+  find /www/wwwroot -name ".user.ini" -type f 2>/dev/null | while read file; do
+    if [ -f "$file" ]; then
+      if chattr -i "$file" 2>/dev/null; then
+        echo "✓ 已移除属性: $file"
+        ((count++))
+      else
+        echo "✗ 移除失败: $file"
+        ((failed++))
+      fi
+    fi
+  done
+
+  # 然后删除所有 .user.ini 文件
+  echo -e "删除所有 .user.ini 文件..."
+  find /www/wwwroot -name ".user.ini" -type f -delete 2>/dev/null
+
+  # 验证是否还有残留
+  local remaining=$(find /www/wwwroot -name ".user.ini" -type f 2>/dev/null | wc -l)
+  if [ $remaining -eq 0 ]; then
+    echo -e "\033[32m所有 .user.ini 文件处理完成\033[0m"
+  else
+    echo -e "\033[33m警告: 还有 $remaining 个 .user.ini 文件未能删除\033[0m"
+    echo -e "可能需要手动处理以下文件:"
+    find /www/wwwroot -name ".user.ini" -type f 2>/dev/null
+  fi
 }
 
 # 主菜单
@@ -139,13 +188,17 @@ case $action in
     Remove_Bt
     ;;
   '3')
-    Remove_Rpm
+    if [ -f "/usr/bin/yum" ] && [ -f "/usr/bin/rpm" ]; then
+      Remove_Rpm
+    fi
     Remove_Service
     Remove_Bt
     Remove_Data
     ;;
   '4')
-    Remove_Rpm
+    if [ -f "/usr/bin/yum" ] && [ -f "/usr/bin/rpm" ]; then
+      Remove_Rpm
+    fi
     Remove_Service
     Remove_Bt
     Remove_Data
